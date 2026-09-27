@@ -1,1 +1,17 @@
-{"name":"uttaradit-meeting-report","main":"src/index.js","compatibility_date":"2026-09-27","assets":{"directory":"./public","binding":"ASSETS","run_worker_first":["/api/*"]}}
+{
+  "name": "uttaradit-meeting-report",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-27",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "uttaradit-meeting-report-db",
+      "database_id": "203e22fc-01e2-4823-ab49-2466f15bed62"
+    }
+  ]
+}
