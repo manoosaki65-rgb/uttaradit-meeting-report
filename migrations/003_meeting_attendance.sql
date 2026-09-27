@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS meeting_attendance (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), report_id UUID NOT NULL REFERENCES meeting_reports(id) ON DELETE CASCADE, name TEXT NOT NULL, role TEXT, sort_order INT NOT NULL DEFAULT 0, attendance_status TEXT NOT NULL DEFAULT 'pending', signature_data TEXT, note TEXT, signed_at TIMESTAMPTZ, UNIQUE(report_id, name))
