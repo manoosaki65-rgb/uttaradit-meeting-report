@@ -1,0 +1,1 @@
+ALTER TABLE meeting_reports ADD COLUMN IF NOT EXISTS recorder_signature_data TEXT, ADD COLUMN IF NOT EXISTS recorder_signed_at TIMESTAMPTZ, ADD COLUMN IF NOT EXISTS admin_signature_data TEXT, ADD COLUMN IF NOT EXISTS admin_signed_at TIMESTAMPTZ;
