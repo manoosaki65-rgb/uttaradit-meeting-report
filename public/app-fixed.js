@@ -71,7 +71,7 @@ function isPdf(f){return !!f && (f.content_type==='application/pdf'||f.kind==='f
 function isImage(f){return !!f && (/^image\//.test(f.content_type||'')||/\.(?:png|jpe?g)(?:$|\?)/i.test(f.url||'')||/\.(?:png|jpe?g)$/i.test(f.title||''))}
 
 async function load(){
-  try{const res=await fetch(API+'/reports');if(!res.ok)throw new Error('โหลดรายการประชุมไม่สำเร็จ');const data=await res.json();let legacy={};try{const lr=await fetch('./legacy-files.json',{cache:'no-store'});if(lr.ok)legacy=await lr.json()}catch{} reports=(data.reports||[]).filter(r=>(r.year_be||YEAR)===YEAR||!r.year_be).map(r=>({...r,files_json:(Array.isArray(r.files_json)&&r.files_json.length?r.files_json:(legacy[r.id]||[]))}));render()}
+  try{const res=await fetch(API+'/reports');if(!res.ok)throw new Error('โหลดรายการประชุมไม่สำเร็จ');const data=await res.json();let legacy={};try{const lr=await fetch('./legacy-files.json',{cache:'no-store'});if(lr.ok)legacy=await lr.json()}catch{} reports=(data.reports||[]).filter(r=>(r.year_be||YEAR)===YEAR||!r.year_be).map(r=>{const live=Array.isArray(r.files_json)?r.files_json:[];const extra=legacy[r.id]||[];const seen=new Set(live.map(f=>(f.kind||'')+'|'+(f.storage_key||f.url||f.title||'')));return {...r,files_json:[...live,...extra.filter(f=>!seen.has((f.kind||'')+'|'+(f.storage_key||f.url||f.title||'')))]}});render()}
   catch(err){toast(err.message)}
 }
 function render(){
