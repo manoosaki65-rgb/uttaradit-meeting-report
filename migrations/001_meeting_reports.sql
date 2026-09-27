@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS meeting_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  meeting_no TEXT NOT NULL,
+  title TEXT NOT NULL,
+  meeting_date DATE NOT NULL,
+  meeting_time TEXT,
+  location TEXT,
+  attendees TEXT,
+  agenda TEXT,
+  summary TEXT,
+  resolutions TEXT,
+  followups TEXT,
+  prepared_by TEXT,
+  head_note TEXT,
+  group_head_note TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_by TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  submitted_at TIMESTAMPTZ,
+  checked_at TIMESTAMPTZ,
+  signed_at TIMESTAMPTZ
+)
