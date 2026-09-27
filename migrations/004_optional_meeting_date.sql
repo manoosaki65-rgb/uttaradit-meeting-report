@@ -1,0 +1,1 @@
+ALTER TABLE meeting_reports ALTER COLUMN meeting_date DROP NOT NULL;
