@@ -161,6 +161,13 @@
       "kind": "audio",
       "title": "260827_001.MP3",
       "source": "drive"
+    },
+    {
+      "kind": "report_file",
+      "title": "รายงานการประชุมกลุ่มงานพัสดุครั้งที่ 4-69 (27 ส.ค. 69) (รอตรวจ).pdf",
+      "source": "upload",
+      "storage_key": "meetings/85eb123b-389d-4f6a-ad68-69b11d0e34ca/bda8d0b9-2f28-4848-b834-a24a696db7f9.pdf",
+      "content_type": "application/pdf"
     }
   ]
 }
