@@ -44,7 +44,16 @@ async function saveReportSignature(){
   try{const res=await fetch(`${API}/reports/${activeReport.id}/sign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role,signature_data:reportCanvas.toDataURL('image/png')})});const d=await res.json();if(!res.ok)throw new Error(d.error||'บันทึกลายมือชื่อไม่สำเร็จ');$('#reportSignDialog').close();toast('บันทึกลายมือชื่อแล้ว');const id=activeReport.id;await load();openMeeting(id,{push:false})}catch(err){toast(err.message)}finally{btn.disabled=false;btn.textContent='บันทึกลายมือชื่อ'}
 }
 function byKind(r,...kinds){return (r.files_json||[]).filter(f=>kinds.includes(f.kind))}
-function fileUrl(f){return f?.url||'#'}
+let latestMeeting4PdfUrl='';
+async function loadLatestMeeting4Pdf(){
+  try{
+    const parts=await Promise.all([1,2,3,4,5].map(i=>fetch('./meeting4-pdf-'+i+'.txt',{cache:'no-store'}).then(r=>r.text())));
+    const b64=parts.join(''); const bin=atob(b64); const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    latestMeeting4PdfUrl=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+  }catch{}
+}
+function fileUrl(f){if(f?.source==='upload'&&f?.storage_key&&latestMeeting4PdfUrl)return latestMeeting4PdfUrl;return f?.url||'#'}
 function fileLink(f,label='เปิด'){return `<div class="file-item"><div class="file-name">📄 ${esc(f.title)}</div><a class="soft link-btn" href="${esc(fileUrl(f))}" target="_blank" rel="noopener">${label}</a></div>`}
 function sequenceOf(r){if(r.sequence_no)return Number(r.sequence_no);const m=String(r.meeting_no||'').match(/ครั้งที่\s*(\d+)/);return m?Number(m[1]):999}
 
@@ -180,4 +189,4 @@ window.printInvitation=()=>{if(!activeReport)return;const r=activeReport,n=seque
 window.printAttendance=async()=>{if(!activeReport)return;try{const res=await fetch(`${API}/attendance/${activeReport.id}/full`);if(!res.ok)throw new Error('ยังไม่สามารถเปิดรายชื่อสำหรับพิมพ์ได้');const d=await res.json();const labels={pending:'ยังไม่ลงชื่อ',present:'เข้าร่วม',vacation:'ลาพักผ่อน',official:'ติดราชการ',personal:'ลากิจ',sick:'ลาป่วย'};const n=sequenceOf(activeReport);const rows=(d.attendance||[]).map((a,i)=>`<tr><td>${i+1}</td><td>${esc(a.name)}</td><td>${esc(a.role||'')}</td><td>${esc(labels[a.attendance_status]||a.attendance_status)}</td><td>${a.signature_data?`<img src="${a.signature_data}" style="max-width:110px;max-height:40px">`:'-'}</td></tr>`).join('');const w=window.open('','_blank');w.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>รายชื่อครั้งที่ ${n}</title><style>body{font-family:Tahoma,sans-serif;margin:25px}h2{text-align:center}table{width:100%;border-collapse:collapse}th,td{border:1px solid #555;padding:7px;font-size:12px}th{background:#eee}@media print{body{margin:10mm}}</style></head><body><h2>รายชื่อผู้เข้าร่วมประชุมกลุ่มงานพัสดุ ครั้งที่ ${n}/${YEAR}</h2><p style="text-align:center">${thDate(activeReport.meeting_date)}</p><table><thead><tr><th>ลำดับ</th><th>ชื่อ-สกุล</th><th>หน้าที่</th><th>สถานะ</th><th>ลายมือชื่อ</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close()}catch(err){toast(err.message)}};
 
 setupReportSignature();
-load();
+loadLatestMeeting4Pdf().then(load);
