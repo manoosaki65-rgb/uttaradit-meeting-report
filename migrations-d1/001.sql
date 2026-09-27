@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS meeting_reports (
+id TEXT PRIMARY KEY, meeting_no TEXT NOT NULL, title TEXT NOT NULL, meeting_date TEXT, meeting_time TEXT, location TEXT, attendees TEXT, agenda TEXT, summary TEXT, resolutions TEXT, followups TEXT, prepared_by TEXT, head_note TEXT, group_head_note TEXT, status TEXT NOT NULL DEFAULT 'draft', created_by TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, submitted_at TEXT, checked_at TEXT, signed_at TEXT, year_be INTEGER, sequence_no INTEGER, folder_url TEXT, files_json TEXT NOT NULL DEFAULT '[]', approval_note TEXT, approved_at TEXT, recorder_signature_data TEXT, recorder_signed_at TEXT, admin_signature_data TEXT, admin_signed_at TEXT);
+CREATE TABLE IF NOT EXISTS meeting_attendance (
+id TEXT PRIMARY KEY, report_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT, sort_order INTEGER NOT NULL DEFAULT 0, attendance_status TEXT NOT NULL DEFAULT 'pending', signature_data TEXT, note TEXT, signed_at TEXT, UNIQUE(report_id,name));
+CREATE INDEX IF NOT EXISTS idx_attendance_report ON meeting_attendance(report_id);
