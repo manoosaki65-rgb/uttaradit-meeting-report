@@ -14,6 +14,12 @@ if(p==="/api/neon-test"&&m==="POST"){
   await sql`INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES(${rid},${"ครั้งที่ 999/2569"},${"ทดสอบ Cloudflare Worker เชื่อม Neon"},'draft',${"neon-test"},${t},${t},${2569},${999},'[]'::jsonb)`;
   return j({ok:true,backend:"neon",id:rid},201);
 }
+if(p==="/api/neon-write-test"&&m==="GET"){
+  const sql=neon(env.DATABASE_URL),rid=id(),t=now();
+  await sql`INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES(${rid},${"ครั้งที่ 999/2569"},${"ทดสอบเขียน Cloudflare ไป Neon"},'draft',${"neon-write-test"},${t},${t},${2569},${999},'[]'::jsonb)`;
+  const rows=await sql`SELECT id,title,created_by,created_at FROM meeting_reports WHERE id=${rid}`;
+  return j({ok:true,backend:"neon",write:true,row:rows[0]});
+}
 
 if(p==="/api/reports"&&m==="GET"){let {results}=await env.DB.prepare("SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signed_at,admin_signed_at FROM meeting_reports ORDER BY COALESCE(year_be,0) DESC,COALESCE(sequence_no,999),meeting_date").all();results=results.map(r=>({...r,files_json:JSON.parse(r.files_json||"[]")}));return j({reports:results})}
 if(p==="/api/migration-status"&&m==="GET"){const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_reports").first(),a=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_attendance").first();return j({reports:Number(r?.n||0),attendance:Number(a?.n||0)})}
