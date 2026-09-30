@@ -1,3 +1,4 @@
+// trigger Cloudflare build for neon-test
 import { neon } from '@neondatabase/serverless';
 const j=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json; charset=utf-8"}});
 const id=()=>crypto.randomUUID(), now=()=>new Date().toISOString();
