@@ -1,1 +1,13 @@
-{"name":"uttaradit-meeting-report","private":true,"devDependencies":{"wrangler":"^4.0.0"},"scripts":{"deploy":"wrangler deploy"}}
+{
+  "name": "uttaradit-meeting-report",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy"
+  }
+}
