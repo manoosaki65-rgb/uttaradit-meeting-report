@@ -38,25 +38,53 @@ if(p==="/api/neon-write-test"&&m==="GET"){
 if(p==="/api/reports"&&m==="GET"){const sql=neon(env.DATABASE_URL);const results=await sql`SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signed_at,admin_signed_at FROM meeting_reports ORDER BY COALESCE(year_be,0) DESC,COALESCE(sequence_no,999),meeting_date`;return j({reports:results.map(r=>({...r,files_json:Array.isArray(r.files_json)?r.files_json:[]})),backend:"neon"})}
 if(p==="/api/migration-status"&&m==="GET"){const sql=neon(env.DATABASE_URL);await ensureNeonSchema(sql);const nr=await sql`SELECT COUNT(*)::int AS n FROM meeting_reports`,na=await sql`SELECT COUNT(*)::int AS n FROM meeting_attendance`;const dr=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_reports").first(),da=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_attendance").first();return j({backend:"comparison",neon:{reports:Number(nr?.[0]?.n||0),attendance:Number(na?.[0]?.n||0)},d1:{reports:Number(dr?.n||0),attendance:Number(da?.n||0)}})}
 if(p==="/api/migrate-d1-to-neon"&&m==="GET"){
-  const sql=neon(env.DATABASE_URL);await ensureNeonSchema(sql);
+  const sql=neon(env.DATABASE_URL);
   const {results:reports}=await env.DB.prepare("SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at FROM meeting_reports").all();
-  let reportsInserted=0;
-  for(const r of reports){
-    let files="[]";try{files=JSON.stringify(JSON.parse(r.files_json||"[]"))}catch{}
-    const out=await sql`INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at)
-      VALUES(${r.id}::uuid,${r.meeting_no||""},${r.title||""},${r.meeting_date||null}::date,${r.meeting_time||""},${r.location||""},${r.attendees||""},${r.agenda||""},${r.summary||""},${r.resolutions||""},${r.followups||""},${r.prepared_by||""},${r.head_note||null},${r.group_head_note||null},${r.approval_note||null},${r.status||"draft"},${r.created_by||null},${r.created_at||null}::timestamptz,${r.updated_at||null}::timestamptz,${r.submitted_at||null}::timestamptz,${r.checked_at||null}::timestamptz,${r.approved_at||null}::timestamptz,${r.signed_at||null}::timestamptz,${r.year_be??null},${r.sequence_no??null},${r.folder_url||null},${files}::jsonb,${r.recorder_signature_data||null},${r.recorder_signed_at||null}::timestamptz,${r.admin_signature_data||null},${r.admin_signed_at||null}::timestamptz)
-      ON CONFLICT(id) DO NOTHING RETURNING id`;
-    reportsInserted+=out.length;
-  }
   const {results:attendance}=await env.DB.prepare("SELECT id,report_id,name,role,sort_order,attendance_status,signature_data,note,signed_at FROM meeting_attendance").all();
-  let attendanceInserted=0;
-  for(const a of attendance){
-    const out=await sql`INSERT INTO meeting_attendance(id,report_id,name,role,sort_order,attendance_status,signature_data,note,signed_at)
-      VALUES(${a.id}::uuid,${a.report_id}::uuid,${a.name||""},${a.role||null},${a.sort_order??0},${a.attendance_status||"pending"},${a.signature_data||null},${a.note||null},${a.signed_at||null}::timestamptz)
-      ON CONFLICT(id) DO NOTHING RETURNING id`;
-    attendanceInserted+=out.length;
+
+  const reportRows=reports.map(r=>({
+    ...r,
+    files_json:(()=>{try{return JSON.parse(r.files_json||"[]")}catch{return []}})()
+  }));
+  const attendanceRows=attendance;
+
+  let reportsInserted=0,attendanceInserted=0;
+  if(reportRows.length){
+    const rr=await sql.query(
+      `WITH src AS (
+        SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
+          id uuid,meeting_no text,title text,meeting_date date,meeting_time text,location text,attendees text,agenda text,summary text,resolutions text,followups text,prepared_by text,head_note text,group_head_note text,approval_note text,status text,created_by text,created_at timestamptz,updated_at timestamptz,submitted_at timestamptz,checked_at timestamptz,approved_at timestamptz,signed_at timestamptz,year_be int,sequence_no int,folder_url text,files_json jsonb,recorder_signature_data text,recorder_signed_at timestamptz,admin_signature_data text,admin_signed_at timestamptz
+        )
+      )
+      INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at)
+      SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,COALESCE(status,'draft'),created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,COALESCE(files_json,'[]'::jsonb),recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at
+      FROM src
+      ON CONFLICT(id) DO NOTHING
+      RETURNING id`,
+      [JSON.stringify(reportRows)]
+    );
+    reportsInserted=rr.length;
   }
-  const nr=await sql`SELECT COUNT(*)::int AS n FROM meeting_reports`,na=await sql`SELECT COUNT(*)::int AS n FROM meeting_attendance`;
+
+  if(attendanceRows.length){
+    const aa=await sql.query(
+      `WITH src AS (
+        SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
+          id uuid,report_id uuid,name text,role text,sort_order int,attendance_status text,signature_data text,note text,signed_at timestamptz
+        )
+      )
+      INSERT INTO meeting_attendance(id,report_id,name,role,sort_order,attendance_status,signature_data,note,signed_at)
+      SELECT id,report_id,name,role,COALESCE(sort_order,0),COALESCE(attendance_status,'pending'),signature_data,note,signed_at
+      FROM src
+      ON CONFLICT(id) DO NOTHING
+      RETURNING id`,
+      [JSON.stringify(attendanceRows)]
+    );
+    attendanceInserted=aa.length;
+  }
+
+  const nr=await sql`SELECT COUNT(*)::int AS n FROM meeting_reports`;
+  const na=await sql`SELECT COUNT(*)::int AS n FROM meeting_attendance`;
   return j({ok:true,backend:"neon",migrated:{reportsInserted,attendanceInserted},neon:{reports:Number(nr?.[0]?.n||0),attendance:Number(na?.[0]?.n||0)},d1:{reports:reports.length,attendance:attendance.length}});
 }
 if(p==="/api/reports"&&m==="POST"){const sql=neon(env.DATABASE_URL);const b=await req.json(),rid=id(),t=now(),yb=Number(b.year_be||2569),sn=Number(b.sequence_no||1);await sql`INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,status,created_by,created_at,updated_at,year_be,sequence_no,folder_url,files_json) VALUES(${rid},${b.meeting_no||`ครั้งที่ ${sn}/${yb}`},${b.title||"การประชุมกลุ่มงานพัสดุ"},${b.meeting_date||null},${b.meeting_time||""},${b.location||""},${b.attendees||""},${b.agenda||""},${b.summary||""},${b.resolutions||""},${b.followups||""},${b.prepared_by||"ผู้จัดทำ"},'draft',${"ผู้จัดทำ"},${t},${t},${yb},${sn},${b.folder_url||null},'[]'::jsonb)`;return j({report:{id:rid},backend:"neon"},201)}
