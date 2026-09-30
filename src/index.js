@@ -6,12 +6,12 @@ export default {async fetch(req,env){const u=new URL(req.url),p=u.pathname,m=req
 try{
 if(p==="/api/neon-test"&&m==="GET"){
   const sql=neon(env.DATABASE_URL);
-  const rows=await sql("SELECT COUNT(*)::int AS reports FROM meeting_reports");
+  const rows=await sql`SELECT COUNT(*)::int AS reports FROM meeting_reports`;
   return j({ok:true,backend:"neon",reports:Number(rows?.[0]?.reports||0)});
 }
 if(p==="/api/neon-test"&&m==="POST"){
   const sql=neon(env.DATABASE_URL),rid=id(),t=now();
-  await sql("INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES($1,$2,$3,'draft',$4,$5,$6,$7,$8,'[]'::jsonb)",[rid,"ครั้งที่ 999/2569","ทดสอบ Cloudflare Worker เชื่อม Neon","neon-test",t,t,2569,999]);
+  await sql`INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES(${rid},${"ครั้งที่ 999/2569"},${"ทดสอบ Cloudflare Worker เชื่อม Neon"},'draft',${"neon-test"},${t},${t},${2569},${999},'[]'::jsonb)`;
   return j({ok:true,backend:"neon",id:rid},201);
 }
 
