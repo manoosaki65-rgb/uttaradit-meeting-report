@@ -1,7 +1,19 @@
+import { neon } from '@neondatabase/serverless';
 const j=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json; charset=utf-8"}});
 const id=()=>crypto.randomUUID(), now=()=>new Date().toISOString();
 export default {async fetch(req,env){const u=new URL(req.url),p=u.pathname,m=req.method;
 try{
+if(p==="/api/neon-test"&&m==="GET"){
+  const sql=neon(env.DATABASE_URL);
+  const rows=await sql("SELECT COUNT(*)::int AS reports FROM meeting_reports");
+  return j({ok:true,backend:"neon",reports:Number(rows?.[0]?.reports||0)});
+}
+if(p==="/api/neon-test"&&m==="POST"){
+  const sql=neon(env.DATABASE_URL),rid=id(),t=now();
+  await sql("INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES($1,$2,$3,'draft',$4,$5,$6,$7,$8,'[]'::jsonb)",[rid,"ครั้งที่ 999/2569","ทดสอบ Cloudflare Worker เชื่อม Neon","neon-test",t,t,2569,999]);
+  return j({ok:true,backend:"neon",id:rid},201);
+}
+
 if(p==="/api/reports"&&m==="GET"){let {results}=await env.DB.prepare("SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signed_at,admin_signed_at FROM meeting_reports ORDER BY COALESCE(year_be,0) DESC,COALESCE(sequence_no,999),meeting_date").all();results=results.map(r=>({...r,files_json:JSON.parse(r.files_json||"[]")}));return j({reports:results})}
 if(p==="/api/migration-status"&&m==="GET"){const r=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_reports").first(),a=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_attendance").first();return j({reports:Number(r?.n||0),attendance:Number(a?.n||0)})}
 if(p==="/api/reports"&&m==="POST"){const b=await req.json(),rid=id(),t=now(),yb=Number(b.year_be||2569),sn=Number(b.sequence_no||1);await env.DB.prepare("INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,status,created_by,created_at,updated_at,year_be,sequence_no,folder_url,files_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'draft',?,?,?,?,?,?,'[]')").bind(rid,b.meeting_no||`ครั้งที่ ${sn}/${yb}`,b.title||"การประชุมกลุ่มงานพัสดุ",b.meeting_date||null,b.meeting_time||"",b.location||"",b.attendees||"",b.agenda||"",b.summary||"",b.resolutions||"",b.followups||"",b.prepared_by||"ผู้จัดทำ","ผู้จัดทำ",t,t,yb,sn,b.folder_url||null).run();return j({report:{id:rid}},201)}
