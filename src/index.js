@@ -1,4 +1,3 @@
-// trigger Cloudflare build for neon-test
 import { neon } from '@neondatabase/serverless';
 const j=(x,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json; charset=utf-8"}});
 const id=()=>crypto.randomUUID(), now=()=>new Date().toISOString();
@@ -18,75 +17,13 @@ async function ensureNeonSchema(sql){
 }
 export default {async fetch(req,env){const u=new URL(req.url),p=u.pathname,m=req.method;
 try{
-if(p==="/api/neon-test"&&m==="GET"){
-  const sql=neon(env.DATABASE_URL);
-  const rows=await sql`SELECT COUNT(*)::int AS reports FROM meeting_reports`;
-  return j({ok:true,backend:"neon",reports:Number(rows?.[0]?.reports||0)});
-}
-if(p==="/api/neon-test"&&m==="POST"){
-  const sql=neon(env.DATABASE_URL),rid=id(),t=now();
-  await sql`INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES(${rid},${"ครั้งที่ 999/2569"},${"ทดสอบ Cloudflare Worker เชื่อม Neon"},'draft',${"neon-test"},${t},${t},${2569},${999},'[]'::jsonb)`;
-  return j({ok:true,backend:"neon",id:rid},201);
-}
-if(p==="/api/neon-write-test"&&m==="GET"){
-  const sql=neon(env.DATABASE_URL),rid=id(),t=now();
-  await sql`INSERT INTO meeting_reports(id,meeting_no,title,status,created_by,created_at,updated_at,year_be,sequence_no,files_json) VALUES(${rid},${"ครั้งที่ 999/2569"},${"ทดสอบเขียน Cloudflare ไป Neon"},'draft',${"neon-write-test"},${t},${t},${2569},${999},'[]'::jsonb)`;
-  const rows=await sql`SELECT id,title,created_by,created_at FROM meeting_reports WHERE id=${rid}`;
-  return j({ok:true,backend:"neon",write:true,row:rows[0]});
-}
+
+
+
 
 if(p==="/api/reports"&&m==="GET"){const sql=neon(env.DATABASE_URL);const results=await sql`SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signed_at,admin_signed_at FROM meeting_reports ORDER BY COALESCE(year_be,0) DESC,COALESCE(sequence_no,999),meeting_date`;return j({reports:results.map(r=>({...r,files_json:Array.isArray(r.files_json)?r.files_json:[]})),backend:"neon"})}
 if(p==="/api/migration-status"&&m==="GET"){const sql=neon(env.DATABASE_URL);await ensureNeonSchema(sql);const nr=await sql`SELECT COUNT(*)::int AS n FROM meeting_reports`,na=await sql`SELECT COUNT(*)::int AS n FROM meeting_attendance`;const dr=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_reports").first(),da=await env.DB.prepare("SELECT COUNT(*) AS n FROM meeting_attendance").first();return j({backend:"comparison",neon:{reports:Number(nr?.[0]?.n||0),attendance:Number(na?.[0]?.n||0)},d1:{reports:Number(dr?.n||0),attendance:Number(da?.n||0)}})}
-if(p==="/api/migrate-d1-to-neon"&&m==="GET"){
-  const sql=neon(env.DATABASE_URL);
-  const {results:reports}=await env.DB.prepare("SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at FROM meeting_reports").all();
-  const {results:attendance}=await env.DB.prepare("SELECT id,report_id,name,role,sort_order,attendance_status,signature_data,note,signed_at FROM meeting_attendance").all();
 
-  const reportRows=reports.map(r=>({
-    ...r,
-    files_json:(()=>{try{return JSON.parse(r.files_json||"[]")}catch{return []}})()
-  }));
-  const attendanceRows=attendance;
-
-  let reportsInserted=0,attendanceInserted=0;
-  if(reportRows.length){
-    const rr=await sql.query(
-      `WITH src AS (
-        SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
-          id uuid,meeting_no text,title text,meeting_date date,meeting_time text,location text,attendees text,agenda text,summary text,resolutions text,followups text,prepared_by text,head_note text,group_head_note text,approval_note text,status text,created_by text,created_at timestamptz,updated_at timestamptz,submitted_at timestamptz,checked_at timestamptz,approved_at timestamptz,signed_at timestamptz,year_be int,sequence_no int,folder_url text,files_json jsonb,recorder_signature_data text,recorder_signed_at timestamptz,admin_signature_data text,admin_signed_at timestamptz
-        )
-      )
-      INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,status,created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,files_json,recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at)
-      SELECT id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,head_note,group_head_note,approval_note,COALESCE(status,'draft'),created_by,created_at,updated_at,submitted_at,checked_at,approved_at,signed_at,year_be,sequence_no,folder_url,COALESCE(files_json,'[]'::jsonb),recorder_signature_data,recorder_signed_at,admin_signature_data,admin_signed_at
-      FROM src
-      ON CONFLICT(id) DO NOTHING
-      RETURNING id`,
-      [JSON.stringify(reportRows)]
-    );
-    reportsInserted=rr.length;
-  }
-
-  if(attendanceRows.length){
-    const aa=await sql.query(
-      `WITH src AS (
-        SELECT * FROM jsonb_to_recordset($1::jsonb) AS x(
-          id uuid,report_id uuid,name text,role text,sort_order int,attendance_status text,signature_data text,note text,signed_at timestamptz
-        )
-      )
-      INSERT INTO meeting_attendance(id,report_id,name,role,sort_order,attendance_status,signature_data,note,signed_at)
-      SELECT id,report_id,name,role,COALESCE(sort_order,0),COALESCE(attendance_status,'pending'),signature_data,note,signed_at
-      FROM src
-      ON CONFLICT(id) DO NOTHING
-      RETURNING id`,
-      [JSON.stringify(attendanceRows)]
-    );
-    attendanceInserted=aa.length;
-  }
-
-  const nr=await sql`SELECT COUNT(*)::int AS n FROM meeting_reports`;
-  const na=await sql`SELECT COUNT(*)::int AS n FROM meeting_attendance`;
-  return j({ok:true,backend:"neon",migrated:{reportsInserted,attendanceInserted},neon:{reports:Number(nr?.[0]?.n||0),attendance:Number(na?.[0]?.n||0)},d1:{reports:reports.length,attendance:attendance.length}});
-}
 if(p==="/api/reports"&&m==="POST"){const sql=neon(env.DATABASE_URL);const b=await req.json(),rid=id(),t=now(),yb=Number(b.year_be||2569),sn=Number(b.sequence_no||1);await sql`INSERT INTO meeting_reports(id,meeting_no,title,meeting_date,meeting_time,location,attendees,agenda,summary,resolutions,followups,prepared_by,status,created_by,created_at,updated_at,year_be,sequence_no,folder_url,files_json) VALUES(${rid},${b.meeting_no||`ครั้งที่ ${sn}/${yb}`},${b.title||"การประชุมกลุ่มงานพัสดุ"},${b.meeting_date||null},${b.meeting_time||""},${b.location||""},${b.attendees||""},${b.agenda||""},${b.summary||""},${b.resolutions||""},${b.followups||""},${b.prepared_by||"ผู้จัดทำ"},'draft',${"ผู้จัดทำ"},${t},${t},${yb},${sn},${b.folder_url||null},'[]'::jsonb)`;return j({report:{id:rid},backend:"neon"},201)}
 let x=p.match(/^\/api\/reports\/([^/]+)$/);if(x&&m==="PUT"){const sql=neon(env.DATABASE_URL),b=await req.json(),t=now(),s=b.status||"draft";const rows=await sql`UPDATE meeting_reports SET status=${s},head_note=COALESCE(${b.head_note??null},head_note),group_head_note=COALESCE(${b.group_head_note??null},group_head_note),approval_note=COALESCE(${b.approval_note??null},approval_note),submitted_at=CASE WHEN ${s}='pending_head' THEN COALESCE(submitted_at,${t}::timestamptz) ELSE submitted_at END,checked_at=CASE WHEN ${s}='pending_group_head' THEN COALESCE(checked_at,${t}::timestamptz) ELSE checked_at END,approved_at=CASE WHEN ${s}='approved' THEN COALESCE(approved_at,${t}::timestamptz) ELSE approved_at END,signed_at=CASE WHEN ${s} IN ('completed','signed') THEN COALESCE(signed_at,${t}::timestamptz) ELSE signed_at END,updated_at=${t}::timestamptz WHERE id=${x[1]}::uuid RETURNING id,status,updated_at`;return rows.length?j({report:rows[0],backend:"neon"}):j({error:"ไม่พบรายงาน"},404)}
 x=p.match(/^\/api\/attendance\/([^/]+)\/meta$/);if(x&&m==="GET"){const sql=neon(env.DATABASE_URL),rows=await sql`SELECT id,meeting_no,title,meeting_date,meeting_time,location FROM meeting_reports WHERE id=${x[1]}::uuid`;return rows[0]?j({meeting:rows[0],backend:"neon"}):j({error:"ไม่พบการประชุม"},404)}
