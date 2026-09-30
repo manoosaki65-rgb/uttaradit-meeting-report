@@ -87,7 +87,7 @@ function resourceChips(r){
 }
 function calendarHTML(r){
   if(!r.meeting_date)return '<div class="calendar-empty">ยังไม่กำหนดวันประชุม</div>';
-  const d=new Date(r.meeting_date+'T00:00:00');
+  const raw=String(r.meeting_date);const d=new Date(raw.length===10?raw+'T00:00:00':raw);
   const year=d.getFullYear(),month=d.getMonth(),day=d.getDate();
   const first=new Date(year,month,1).getDay();
   const days=new Date(year,month+1,0).getDate();
